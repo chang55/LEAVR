@@ -1,7 +1,6 @@
 #!/bin/bash
 # ============================================================
-# LEAVR 执法记录仪 - 构建脚本
-# 支持: 主机调试构建 / 海思交叉编译
+# LEAVR 执法记录仪 - 构建脚本 (arm-himix-linux 交叉编译)
 # ============================================================
 
 set -e
@@ -22,21 +21,18 @@ usage() {
     echo "Options:"
     echo "  -h, --help          Show this help"
     echo "  -d, --debug         Build with debug symbols"
-    echo "  -c, --cross         Cross compile for HiSilicon HI3516"
     echo "  -r, --release       Release build (default)"
     echo "  -C, --clean         Clean build directory first"
     echo "  -j N                Parallel jobs (default: nproc)"
     echo ""
     echo "Examples:"
-    echo "  $0                  # Host debug build"
-    echo "  $0 -d               # Host debug build"
-    echo "  $0 -c -r            # Cross compile release for HI3516"
-    echo "  $0 -c -d -C         # Clean cross compile debug"
+    echo "  $0                  # Release build"
+    echo "  $0 -d               # Debug build"
+    echo "  $0 -d -C            # Clean debug build"
 }
 
 # 默认参数
 BUILD_TYPE="Release"
-CROSS_COMPILE=0
 CLEAN=0
 DEBUG=0
 JOBS=$(nproc 2>/dev/null || echo 4)
@@ -51,10 +47,6 @@ while [[ $# -gt 0 ]]; do
         -d|--debug)
             DEBUG=1
             BUILD_TYPE="Debug"
-            shift
-            ;;
-        -c|--cross)
-            CROSS_COMPILE=1
             shift
             ;;
         -r|--release)
@@ -78,13 +70,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  LEAVR 执法记录仪 - Build Script${NC}"
+echo -e "${GREEN}  LEAVR 执法记录仪 - Build Script (arm-himix-linux)${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo "  Project:    ${PROJECT_DIR}"
 echo "  Build Dir:  ${BUILD_DIR}"
 echo "  Build Type: ${BUILD_TYPE}"
 echo "  Debug:      ${DEBUG}"
-echo "  Cross:      ${CROSS_COMPILE}"
 echo "  Jobs:       ${JOBS}"
 echo -e "${GREEN}========================================${NC}"
 
@@ -105,19 +96,14 @@ if [[ ${DEBUG} -eq 1 ]]; then
     CMAKE_ARGS="${CMAKE_ARGS} -DLEAVR_DEBUG=ON"
 fi
 
-if [[ ${CROSS_COMPILE} -eq 1 ]]; then
-    # 检查工具链文件是否存在
-    TOOLCHAIN_FILE="${PROJECT_DIR}/toolchain/arm-himix-linux.cmake"
-    if [[ ! -f "${TOOLCHAIN_FILE}" ]]; then
-        echo -e "${RED}Error: Toolchain file not found: ${TOOLCHAIN_FILE}${NC}"
-        echo -e "${YELLOW}Please edit toolchain/arm-himix-linux.cmake to set your toolchain path${NC}"
-        exit 1
-    fi
-    CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE}"
-    echo -e "${YELLOW}Using HiSilicon cross-compile toolchain${NC}"
-else
-    echo -e "${YELLOW}Using native toolchain (host build for debugging)${NC}"
+# 工具链文件
+TOOLCHAIN_FILE="${PROJECT_DIR}/toolchain/arm-himix-linux.cmake"
+if [[ ! -f "${TOOLCHAIN_FILE}" ]]; then
+    echo -e "${RED}Error: Toolchain file not found: ${TOOLCHAIN_FILE}${NC}"
+    echo -e "${YELLOW}Please edit toolchain/arm-himix-linux.cmake to set your toolchain path${NC}"
+    exit 1
 fi
+CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN_FILE}"
 
 # 配置
 echo -e "${GREEN}Running CMake...${NC}"
@@ -143,9 +129,5 @@ fi
 
 echo ""
 echo "Install commands:"
-if [[ ${CROSS_COMPILE} -eq 1 ]]; then
-    echo "  scp build/leavr_app root@<device_ip>:/usr/bin/"
-    echo "  scp config/device.conf root@<device_ip>:/mnt/sdcard/Config/"
-else
-    echo "  ./build/leavr_app"
-fi
+echo "  scp build/leavr_app root@<device_ip>:/usr/bin/"
+echo "  scp config/device.conf root@<device_ip>:/mnt/sdcard/Config/"
