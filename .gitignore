@@ -45,3 +45,5 @@ core.*
 # Temporary
 *.tmp
 *.temp
+
+plans/
