@@ -286,21 +286,25 @@ typedef struct {
     int local_port;
 } Gb28181Config;
 
-// 系统设备状态信息
+/**
+ * @brief 系统设备状态信息
+ *
+ * 包含设备运行时的完整状态快照，用于 OSD 显示、状态上报及 UI 刷新。
+ */
 typedef struct {
-    DeviceState state;
-    int battery_percent;
-    bool is_charging;
-    bool is_recording;
-    bool is_muted;
-    bool ir_active;
-    NetworkType active_network;
-    int network_signal;     // 0-100 信号强度
-    uint32_t record_elapsed_sec;
-    uint64_t sd_free_bytes;
-    uint64_t sd_total_bytes;
-    float cpu_temp;         // CPU 温度 (℃)
-    GpsPosition gps;
+    DeviceState state;                  /**< 当前设备运行状态 */
+    int battery_percent;                /**< 电池电量百分比 (0-100) */
+    bool is_charging;                   /**< 是否正在充电 */
+    bool is_recording;                  /**< 是否正在录像 */
+    bool is_muted;                      /**< 是否静音 */
+    bool ir_active;                     /**< 红外是否开启 */
+    NetworkType active_network;         /**< 当前活跃的网络类型 */
+    int network_signal;                 /**< 网络信号强度 (0-100) */
+    uint32_t record_elapsed_sec;        /**< 当前录像已录制时长 (秒) */
+    uint64_t sd_free_bytes;             /**< SD 卡剩余空间 (字节) */
+    uint64_t sd_total_bytes;            /**< SD 卡总容量 (字节) */
+    float cpu_temp;                     /**< CPU 温度 (℃) */
+    GpsPosition gps;                    /**< 当前 GPS 位置信息 */
 } SystemStatus;
 
 #ifdef __cplusplus
