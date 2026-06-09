@@ -15,6 +15,12 @@
 
 namespace leavr {
 
+class IVideoFrameSink {
+public:
+    virtual ~IVideoFrameSink() = default;
+    virtual void OnVideoFrame(const EncodedVideoFrame& frame) = 0;
+};
+
 /* ================================================================
  * IMediaPipeline - 媒体管线抽象接口
  * ================================================================ */
@@ -22,21 +28,41 @@ class IMediaPipeline {
 public:
     virtual ~IMediaPipeline() = default;
 
-    virtual int Init(const RecordConfig& cfg) = 0;
+    virtual int Init(const MediaPipelineConfig& cfg) = 0;
     virtual int Start() = 0;
     virtual int Pause() = 0;
     virtual int Resume() = 0;
     virtual int Stop() = 0;
 
-    virtual int GetMainStream(VencStream& stream, int timeout_ms) = 0;
-    virtual int GetSubStream(VencStream& stream, int timeout_ms) = 0;
-    virtual int ReleaseStream(VencStream& stream) = 0;
+    virtual int RegisterSink(IVideoFrameSink* sink) = 0;
+    virtual int UnregisterSink(IVideoFrameSink* sink) = 0;
+    virtual int SetCropWindow(const EisCropWindow& window) = 0;
+    virtual int RequestIdr(VideoStreamId stream_id) = 0;
 
     virtual int SetOsd(const OsdConfig& cfg) = 0;
     virtual int CaptureJpeg(const char* path, const JpegConfig& cfg) = 0;
 
     virtual float GetActualFps() = 0;
     virtual int GetBitrate() = 0;
+};
+
+class IRecorder : public IVideoFrameSink {
+public:
+    virtual ~IRecorder() = default;
+    virtual int StartRecording(const char* path, const StreamProfile& profile) = 0;
+    virtual int StopRecording() = 0;
+    virtual bool IsRecording() const = 0;
+    virtual uint64_t GetBytesWritten() const = 0;
+};
+
+class IRtspServer : public IVideoFrameSink {
+public:
+    virtual ~IRtspServer() = default;
+    virtual int Start(int port, const char* stream_path,
+                      const StreamProfile& profile) = 0;
+    virtual int Stop() = 0;
+    virtual bool IsRunning() const = 0;
+    virtual int GetClientCount() const = 0;
 };
 
 /* ================================================================
@@ -175,6 +201,8 @@ public:
  * ================================================================ */
 class IIcm20948Hal {
 public:
+    using DataCallback = std::function<void(const EisFrameData& data)>;
+
     virtual ~IIcm20948Hal() = default;
 
     virtual int Init(const char* i2c_dev, uint8_t addr) = 0;
@@ -184,6 +212,7 @@ public:
     virtual int Start() = 0;
     virtual int Stop() = 0;
     virtual int ReadData(EisFrameData* data, int timeout_ms) = 0;
+    virtual int SetDataCallback(DataCallback callback) = 0;
     virtual int Calibrate() = 0;
     virtual bool SelfTest() = 0;
 };

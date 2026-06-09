@@ -14,73 +14,80 @@ extern "C" {
 /* ================================================================
  * 错误码
  * ================================================================ */
+
+/**
+ * @brief LEAVR 统一错误码枚举
+ *
+ * 错误码按模块分段，每个模块占用 100 的范围，便于快速定位问题来源。
+ * - 负值表示错误，0 表示成功。
+ * - 新增错误码请遵循现有分段规则，并在 leavr_strerror() 中添加对应字符串。
+ */
 enum LeavrError {
-    // 成功
-    LEAVR_OK                    = 0,
+    LEAVR_OK                    = 0,    /**< 操作成功 */
 
-    // 通用错误 (-1 ~ -99)
-    LEAVR_ERR_PARAM             = -1,
-    LEAVR_ERR_MEMORY            = -2,
-    LEAVR_ERR_TIMEOUT           = -3,
-    LEAVR_ERR_NOT_INIT          = -4,
-    LEAVR_ERR_STATE             = -5,
-    LEAVR_ERR_NOT_SUPPORTED     = -6,
-    LEAVR_ERR_BUSY              = -7,
-    LEAVR_ERR_IO                = -8,
+    /* ---------- 通用错误 (-1 ~ -99) ---------- */
+    LEAVR_ERR_PARAM             = -1,   /**< 无效参数 */
+    LEAVR_ERR_MEMORY            = -2,   /**< 内存不足 */
+    LEAVR_ERR_TIMEOUT           = -3,   /**< 操作超时 */
+    LEAVR_ERR_NOT_INIT          = -4,   /**< 模块未初始化 */
+    LEAVR_ERR_STATE             = -5,   /**< 状态错误 (当前状态下不允许该操作) */
+    LEAVR_ERR_NOT_SUPPORTED     = -6,   /**< 功能不支持 */
+    LEAVR_ERR_BUSY              = -7,   /**< 资源忙 */
+    LEAVR_ERR_IO                = -8,   /**< I/O 错误 */
 
-    // 媒体错误 (-100 ~ -199)
-    LEAVR_ERR_VI_INIT           = -100,
-    LEAVR_ERR_VI_STREAM         = -101,
-    LEAVR_ERR_VPSS_INIT         = -110,
-    LEAVR_ERR_VPSS_CROP         = -111,
-    LEAVR_ERR_VENC_INIT         = -120,
-    LEAVR_ERR_VENC_STREAM       = -121,
-    LEAVR_ERR_VDEC_INIT         = -130,
-    LEAVR_ERR_AI_INIT           = -140,
-    LEAVR_ERR_AENC_INIT         = -141,
-    LEAVR_ERR_AVS_INIT          = -150,
-    LEAVR_ERR_AVS_MUX           = -151,
-    LEAVR_ERR_EIS_INIT          = -160,
-    LEAVR_ERR_EIS_CALC          = -161,
-    LEAVR_ERR_OSD_INIT          = -170,
+    /* ---------- 媒体错误 (-100 ~ -199) ---------- */
+    LEAVR_ERR_VI_INIT           = -100, /**< VI (视频输入) 初始化失败 */
+    LEAVR_ERR_VI_STREAM         = -101, /**< VI 流异常 */
+    LEAVR_ERR_VPSS_INIT         = -110, /**< VPSS (视频处理子系统) 初始化失败 */
+    LEAVR_ERR_VPSS_CROP         = -111, /**< VPSS 裁剪操作失败 */
+    LEAVR_ERR_VENC_INIT         = -120, /**< VENC (视频编码) 初始化失败 */
+    LEAVR_ERR_VENC_STREAM       = -121, /**< VENC 编码流错误 */
+    LEAVR_ERR_VDEC_INIT         = -130, /**< VDEC (视频解码) 初始化失败 */
+    LEAVR_ERR_AI_INIT           = -140, /**< AI (音频输入) 初始化失败 */
+    LEAVR_ERR_AENC_INIT         = -141, /**< AENC (音频编码) 初始化失败 */
+    LEAVR_ERR_AVS_INIT          = -150, /**< AVS (音视频复用) 初始化失败 */
+    LEAVR_ERR_AVS_MUX           = -151, /**< AVS 复用写入错误 */
+    LEAVR_ERR_EIS_INIT          = -160, /**< EIS (电子防抖) 初始化失败 */
+    LEAVR_ERR_EIS_CALC          = -161, /**< EIS 计算错误 */
+    LEAVR_ERR_OSD_INIT          = -170, /**< OSD (屏幕叠加) 初始化失败 */
 
-    // 存储错误 (-200 ~ -299)
-    LEAVR_ERR_SD_NOT_FOUND      = -200,
-    LEAVR_ERR_SD_FULL           = -201,
-    LEAVR_ERR_FILE_OPEN         = -210,
-    LEAVR_ERR_FILE_WRITE        = -211,
-    LEAVR_ERR_FILE_READ         = -212,
-    LEAVR_ERR_FILE_CLOSE        = -213,
-    LEAVR_ERR_DB_INIT           = -220,
-    LEAVR_ERR_DB_QUERY          = -221,
+    /* ---------- 存储错误 (-200 ~ -299) ---------- */
+    LEAVR_ERR_SD_NOT_FOUND      = -200, /**< SD 卡未检测到 */
+    LEAVR_ERR_SD_FULL           = -201, /**< SD 卡已满 */
+    LEAVR_ERR_FILE_OPEN         = -210, /**< 文件打开失败 */
+    LEAVR_ERR_FILE_WRITE        = -211, /**< 文件写入失败 */
+    LEAVR_ERR_FILE_READ         = -212, /**< 文件读取失败 */
+    LEAVR_ERR_FILE_CLOSE        = -213, /**< 文件关闭失败 */
+    LEAVR_ERR_DB_INIT           = -220, /**< 数据库初始化失败 */
+    LEAVR_ERR_DB_QUERY          = -221, /**< 数据库查询失败 */
 
-    // 网络错误 (-300 ~ -399)
-    LEAVR_ERR_NET_CONNECT       = -300,
-    LEAVR_ERR_NET_TIMEOUT       = -301,
-    LEAVR_ERR_NET_DISCONNECT    = -302,
-    LEAVR_ERR_RTSP_INIT         = -310,
-    LEAVR_ERR_RTSP_STREAM       = -311,
-    LEAVR_ERR_RTMP_INIT         = -320,
-    LEAVR_ERR_RTMP_PUSH         = -321,
-    LEAVR_ERR_ONVIF_INIT        = -330,
-    LEAVR_ERR_GB28181_INIT      = -340,
-    LEAVR_ERR_GB28181_REGISTER  = -341,
+    /* ---------- 网络错误 (-300 ~ -399) ---------- */
+    LEAVR_ERR_NET_CONNECT       = -300, /**< 网络连接失败 */
+    LEAVR_ERR_NET_TIMEOUT       = -301, /**< 网络超时 */
+    LEAVR_ERR_NET_DISCONNECT    = -302, /**< 网络断开 */
+    LEAVR_ERR_RTSP_INIT         = -310, /**< RTSP 服务初始化失败 */
+    LEAVR_ERR_RTSP_STREAM       = -311, /**< RTSP 推流错误 */
+    LEAVR_ERR_RTMP_INIT         = -320, /**< RTMP 客户端初始化失败 */
+    LEAVR_ERR_RTMP_PUSH         = -321, /**< RTMP 推流失败 */
+    LEAVR_ERR_ONVIF_INIT        = -330, /**< ONVIF 协议栈初始化失败 */
+    LEAVR_ERR_GB28181_INIT      = -340, /**< GB/T 28181 协议栈初始化失败 */
+    LEAVR_ERR_GB28181_REGISTER  = -341, /**< GB/T 28181 注册失败 */
 
-    // 安全错误 (-400 ~ -499)
-    LEAVR_ERR_ENCRYPT_INIT      = -400,
-    LEAVR_ERR_ENCRYPT_FAILED    = -401,
-    LEAVR_ERR_DECRYPT_FAILED    = -402,
-    LEAVR_ERR_SIGN_FAILED       = -410,
-    LEAVR_ERR_VERIFY_FAILED     = -411,
-    LEAVR_ERR_KEY_DERIVE        = -420,
+    /* ---------- 安全错误 (-400 ~ -499) ---------- */
+    LEAVR_ERR_ENCRYPT_INIT      = -400, /**< 加密模块初始化失败 */
+    LEAVR_ERR_ENCRYPT_FAILED    = -401, /**< 加密操作失败 */
+    LEAVR_ERR_DECRYPT_FAILED    = -402, /**< 解密操作失败 */
+    LEAVR_ERR_SIGN_FAILED       = -410, /**< 数字签名失败 */
+    LEAVR_ERR_VERIFY_FAILED     = -411, /**< 签名验证失败 */
+    LEAVR_ERR_KEY_DERIVE        = -420, /**< 密钥派生失败 */
 
-    // 硬件错误 (-500 ~ -599)
-    LEAVR_ERR_SENSOR_INIT       = -500,
-    LEAVR_ERR_GPS_NO_FIX        = -510,
-    LEAVR_ERR_BATTERY_CRITICAL  = -520,
-    LEAVR_ERR_OVER_TEMP         = -530,
-    LEAVR_ERR_I2C_FAILED        = -540,
-    LEAVR_ERR_SPI_FAILED        = -541,
+    /* ---------- 硬件错误 (-500 ~ -599) ---------- */
+    LEAVR_ERR_SENSOR_INIT       = -500, /**< 图像传感器初始化失败 */
+    LEAVR_ERR_GPS_NO_FIX        = -510, /**< GPS 未定位 */
+    LEAVR_ERR_BATTERY_CRITICAL  = -520, /**< 电池电量严重不足 */
+    LEAVR_ERR_OVER_TEMP         = -530, /**< 设备过温 */
+    LEAVR_ERR_I2C_FAILED        = -540, /**< I2C 通信错误 */
+    LEAVR_ERR_SPI_FAILED        = -541, /**< SPI 通信错误 */
 };
 
 /**

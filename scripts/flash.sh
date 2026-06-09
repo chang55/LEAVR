@@ -23,7 +23,7 @@ echo "========================================="
 
 # 检查二进制文件
 if [ ! -f "${PROJECT_DIR}/build/leavr_app" ]; then
-    echo "Error: leavr_app not found. Run build.sh -c first."
+    echo "Error: leavr_app not found. Run build.sh -C first."
     exit 1
 fi
 

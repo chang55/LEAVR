@@ -90,7 +90,13 @@ int Icm20948Hal::ReadRegisters(uint8_t reg, uint8_t* buf, size_t len) {
     return LEAVR_OK;
 }
 
+int Icm20948Hal::SelectBank(uint8_t bank) {
+    if (bank > 3) return LEAVR_ERR_PARAM;
+    return WriteRegister(REG_REG_BANK_SEL, static_cast<uint8_t>(bank << 4));
+}
+
 int Icm20948Hal::Init(const char* i2c_dev, uint8_t addr) {
+    if (!i2c_dev || (addr != 0x68 && addr != 0x69)) return LEAVR_ERR_PARAM;
     addr_ = addr;
     LOG_INFO("ICM-20948: Opening %s addr=0x%02X", i2c_dev, addr);
 
@@ -112,10 +118,14 @@ int Icm20948Hal::Init(const char* i2c_dev, uint8_t addr) {
     i2c_fd_ = 0;
 #endif
 
+    if (SelectBank(0) != LEAVR_OK) return LEAVR_ERR_I2C_FAILED;
+
     // WHO_AM_I 验证
 #ifdef __linux__
     uint8_t whoami = 0;
-    ReadRegisters(REG_WHO_AM_I, &whoami, 1);
+    if (ReadRegisters(REG_WHO_AM_I, &whoami, 1) != LEAVR_OK) {
+        return LEAVR_ERR_I2C_FAILED;
+    }
     if (whoami != ICM20948_WHO_AM_I_VALUE) {
         LOG_ERROR("ICM-20948: Wrong WHO_AM_I: 0x%02X (expected 0x%02X)",
                   whoami, ICM20948_WHO_AM_I_VALUE);
@@ -125,15 +135,18 @@ int Icm20948Hal::Init(const char* i2c_dev, uint8_t addr) {
     LOG_INFO("ICM-20948: WHO_AM_I check skipped (simulated)");
 #endif
 
-    // 唤醒设备
-    WriteRegister(REG_PWR_MGMT_1, 0x01);
-
-    // 设置量程
-    SetGyroRange(2000);   // ±2000 dps
-    SetAccelRange(16);     // ±16G
-
-    // 设置 ODR
-    SetOdr(200, 200);
+    // 唤醒设备并应用 MVP 所需的 200Hz 配置。
+    if (WriteRegister(REG_PWR_MGMT_1, 0x01) != LEAVR_OK ||
+        SetGyroRange(2000) != LEAVR_OK ||
+        SetAccelRange(16) != LEAVR_OK ||
+        SetOdr(200, 200) != LEAVR_OK) {
+        LOG_ERROR("ICM-20948: Failed to apply sensor configuration");
+#ifdef __linux__
+        close(i2c_fd_);
+#endif
+        i2c_fd_ = -1;
+        return LEAVR_ERR_SENSOR_INIT;
+    }
 
     LOG_INFO("ICM-20948: Init success, gyro=±%ddps acc=±%dG ODR=%dHz",
              gyro_range_dps_, accel_range_g_, gyro_odr_hz_);
@@ -141,14 +154,22 @@ int Icm20948Hal::Init(const char* i2c_dev, uint8_t addr) {
 }
 
 int Icm20948Hal::SetOdr(uint16_t acc_odr_hz, uint16_t gyro_odr_hz) {
-    // ODR 寄存器计算 (简化)
+    if (acc_odr_hz == 0 || gyro_odr_hz == 0 ||
+        acc_odr_hz > 1125 || gyro_odr_hz > 1125) {
+        return LEAVR_ERR_PARAM;
+    }
     acc_odr_hz_ = acc_odr_hz;
     gyro_odr_hz_ = gyro_odr_hz;
 
-    // 实际实现: 写 REG_ACCEL_SMPLRT_DIV 和 REG_GYRO_SMPLRT_DIV
-    uint8_t gyro_div = static_cast<uint8_t>(1125 / gyro_odr_hz - 1);
-    WriteRegister(REG_GYRO_SMPLRT_DIV, gyro_div);
-
+    const uint16_t acc_div = static_cast<uint16_t>(1125 / acc_odr_hz - 1);
+    const uint8_t gyro_div = static_cast<uint8_t>(1125 / gyro_odr_hz - 1);
+    if (SelectBank(2) != LEAVR_OK ||
+        WriteRegister(REG_ACCEL_SMPLRT_DIV_1, static_cast<uint8_t>((acc_div >> 8) & 0x0f)) != LEAVR_OK ||
+        WriteRegister(REG_ACCEL_SMPLRT_DIV_2, static_cast<uint8_t>(acc_div & 0xff)) != LEAVR_OK ||
+        WriteRegister(REG_GYRO_SMPLRT_DIV, gyro_div) != LEAVR_OK ||
+        SelectBank(0) != LEAVR_OK) {
+        return LEAVR_ERR_I2C_FAILED;
+    }
     return LEAVR_OK;
 }
 
@@ -165,7 +186,11 @@ int Icm20948Hal::SetAccelRange(int g) {
         default: return LEAVR_ERR_PARAM;
     }
 
-    WriteRegister(REG_ACCEL_CONFIG_1, fs_sel << 1);
+    if (SelectBank(2) != LEAVR_OK ||
+        WriteRegister(REG_ACCEL_CONFIG_1, static_cast<uint8_t>((fs_sel << 1) | 0x01)) != LEAVR_OK ||
+        SelectBank(0) != LEAVR_OK) {
+        return LEAVR_ERR_I2C_FAILED;
+    }
     return LEAVR_OK;
 }
 
@@ -181,7 +206,11 @@ int Icm20948Hal::SetGyroRange(int dps) {
         default: return LEAVR_ERR_PARAM;
     }
 
-    WriteRegister(REG_GYRO_CONFIG_1, fs_sel << 1);
+    if (SelectBank(2) != LEAVR_OK ||
+        WriteRegister(REG_GYRO_CONFIG_1, static_cast<uint8_t>((fs_sel << 1) | 0x01)) != LEAVR_OK ||
+        SelectBank(0) != LEAVR_OK) {
+        return LEAVR_ERR_I2C_FAILED;
+    }
     return LEAVR_OK;
 }
 
@@ -208,8 +237,10 @@ int Icm20948Hal::Stop() {
 
 int Icm20948Hal::ReadData(EisFrameData* data, int timeout_ms) {
     if (!data) return LEAVR_ERR_PARAM;
+    (void)timeout_ms;
 
 #ifdef __linux__
+    if (SelectBank(0) != LEAVR_OK) return LEAVR_ERR_I2C_FAILED;
     // 从寄存器读取 12 字节 (ACC×3 + GYRO×3 各 2 字节)
     uint8_t buf[12];
     int ret = ReadRegisters(REG_ACCEL_XOUT_H, buf, sizeof(buf));
@@ -267,21 +298,33 @@ int Icm20948Hal::Calibrate() {
     return LEAVR_OK;
 }
 
+int Icm20948Hal::SetDataCallback(DataCallback callback) {
+    pthread_mutex_lock(&callback_lock_);
+    data_callback_ = std::move(callback);
+    pthread_mutex_unlock(&callback_lock_);
+    return LEAVR_OK;
+}
+
 bool Icm20948Hal::SelfTest() {
-    // 内部自检
-    return true;
+    uint8_t whoami = 0;
+    return SelectBank(0) == LEAVR_OK &&
+           ReadRegisters(REG_WHO_AM_I, &whoami, 1) == LEAVR_OK &&
+           whoami == ICM20948_WHO_AM_I_VALUE;
 }
 
 void* Icm20948Hal::PollingThread(void* arg) {
     auto* hal = static_cast<Icm20948Hal*>(arg);
 
-    // TODO: 将数据推送到 EIS Processor
-    // 此处为示例框架
-
     while (hal->running_) {
         EisFrameData data;
-        // hal->ReadData(&data, 100);
-        // 推送到 EIS Processor
+        if (hal->ReadData(&data, 100) == LEAVR_OK) {
+            pthread_mutex_lock(&hal->callback_lock_);
+            DataCallback callback = hal->data_callback_;
+            pthread_mutex_unlock(&hal->callback_lock_);
+            if (callback) callback(data);
+        } else {
+            LOG_WARN("ICM-20948: read failed");
+        }
 
         int interval_us = 1000000 / hal->gyro_odr_hz_;  // 200Hz = 5000us
         usleep(interval_us);

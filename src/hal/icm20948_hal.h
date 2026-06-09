@@ -7,6 +7,7 @@
 #define LEAVR_HAL_ICM20948_H
 
 #include "leavr_interfaces.h"
+#include <functional>
 #include <pthread.h>
 
 namespace leavr {
@@ -23,6 +24,7 @@ public:
     int Start() override;
     int Stop() override;
     int ReadData(EisFrameData* data, int timeout_ms) override;
+    int SetDataCallback(DataCallback callback) override;
     int Calibrate() override;
     bool SelfTest() override;
 
@@ -31,6 +33,7 @@ private:
 
     int WriteRegister(uint8_t reg, uint8_t value);
     int ReadRegisters(uint8_t reg, uint8_t* buf, size_t len);
+    int SelectBank(uint8_t bank);
 
     int i2c_fd_ = -1;
     uint8_t addr_ = 0x68;
@@ -43,9 +46,8 @@ private:
 
     pthread_t polling_thread_ = 0;
     volatile bool running_ = false;
-
-    // TODO: 在实际海思平台上实现 I2C 读写
-    // 对应 /dev/i2c-1 设备操作
+    DataCallback data_callback_;
+    pthread_mutex_t callback_lock_ = PTHREAD_MUTEX_INITIALIZER;
 };
 
 } // namespace leavr

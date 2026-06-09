@@ -99,6 +99,7 @@ private:
     // 调试
     double last_angle_x_ = 0.0;
     double last_angle_y_ = 0.0;
+    uint64_t last_timestamp_us_ = 0;
 };
 
 } // namespace leavr

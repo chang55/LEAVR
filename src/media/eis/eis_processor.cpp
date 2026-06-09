@@ -71,6 +71,10 @@ EisProcessor::~EisProcessor() {
 }
 
 int EisProcessor::Init(int input_w, int input_h, int output_w, int output_h) {
+    if (input_w <= 0 || input_h <= 0 || output_w <= 0 || output_h <= 0 ||
+        output_w > input_w || output_h > input_h) {
+        return LEAVR_ERR_PARAM;
+    }
     input_w_ = input_w;
     input_h_ = input_h;
     output_w_ = output_w;
@@ -134,6 +138,7 @@ int EisProcessor::Start() {
     bias_y_ = 0.0;
     calibration_samples_ = 0;
     calibrated_ = false;
+    last_timestamp_us_ = 0;
 
     gyro_buf_.Clear();
 
@@ -224,8 +229,14 @@ void EisProcessor::ProcessorThread() {
             double gx = frame_data.gyro_x - bias_x_;
             double gy = frame_data.gyro_y - bias_y_;
 
+            double dt = 0.005;
+            if (last_timestamp_us_ != 0 && frame_data.timestamp_us > last_timestamp_us_) {
+                dt = static_cast<double>(frame_data.timestamp_us - last_timestamp_us_) / 1000000.0;
+                if (dt < 0.001 || dt > 0.05) dt = 0.005;
+            }
+            last_timestamp_us_ = frame_data.timestamp_us;
+
             // 卡尔曼滤波
-            double dt = 0.005;  // 200Hz ODR → 5ms
             angle_x = kf_x_.Update(gx, dt);
             angle_y = kf_y_.Update(gy, dt);
 

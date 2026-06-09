@@ -68,6 +68,19 @@ typedef enum {
 } ResolutionPreset;
 
 /* ================================================================
+ * Sensor 与码流标识
+ * ================================================================ */
+typedef enum {
+    SENSOR_TYPE_SC4336 = 0,
+    SENSOR_TYPE_IMX586 = 1,
+} SensorType;
+
+typedef enum {
+    VIDEO_STREAM_MAIN = 0,
+    VIDEO_STREAM_SUB = 1,
+} VideoStreamId;
+
+/* ================================================================
  * 网络类型
  * ================================================================ */
 typedef enum {
@@ -194,6 +207,50 @@ typedef struct {
     PayloadType codec;
     RcMode rc_mode;
 } VideoConfig;
+
+typedef struct {
+    SensorType type;
+    char name[32];
+    int native_width;
+    int native_height;
+    int max_fps;
+    int eis_crop_width;
+    int eis_crop_height;
+} SensorProfile;
+
+typedef struct {
+    VideoStreamId stream_id;
+    PayloadType codec;
+    int width;
+    int height;
+    int fps;
+    int bitrate;
+    int gop;
+    RcMode rc_mode;
+    int channel_id;
+} StreamProfile;
+
+typedef struct {
+    SensorProfile sensor;
+    StreamProfile main_stream;
+    StreamProfile sub_stream;
+    bool eis_enable;
+} MediaPipelineConfig;
+
+/*
+ * data 只在 IVideoFrameSink::OnVideoFrame() 返回前有效。需要异步处理的
+ * Sink 必须自行复制数据，不能持有该指针。
+ */
+typedef struct {
+    VideoStreamId stream_id;
+    PayloadType codec;
+    const uint8_t* data;
+    uint32_t size;
+    uint64_t pts_us;
+    uint32_t sequence;
+    bool is_key_frame;
+    bool has_parameter_sets;
+} EncodedVideoFrame;
 
 // 音频配置
 typedef struct {
